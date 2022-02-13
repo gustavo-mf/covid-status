@@ -1,13 +1,82 @@
+let linerChart = null;
 
-async function getCountryStatus(country = 'brazil', dateTo, dateFrom) {
+function buildLineGraph(daysLabel, daysData) {
+  console.log(daysLabel, daysData);
 
-  const filterFrom = dateFrom instanceof Date ? dateFrom.toISOString() : '2020-03-01T00:00:00Z';
+  const data = {
+    labels: daysLabel,
+    datasets: [{
+      label: '',
+      data: daysData,
+      fill: false,
+      borderColor: 'rgb(75, 192, 192)',
+      tension: 0.1
+    }]
+  };
+
+  const config = {
+    type: 'line',
+    data: data,
+    options: {
+      plugins: {
+        title: {
+          display: true,
+          text: 'Curva diária de Covid-19'
+        }
+      }
+    }
+  };
+
+  if(linerChart) {
+    linerChart.destroy();
+  }
+
+  linerChart = new Chart(
+    document.getElementById('linhas'),
+    config
+  );
+}
+
+async function getCountryStatus(country = 'brazil', dateTo, dateFrom, dataType = 'Deaths') {
+
+  const filterFrom = dateFrom instanceof Date ? dateFrom.toISOString() : '2020-02-29T00:00:00Z';
   const filterTo = dateTo instanceof Date ? dateTo.toISOString() : '2020-04-01T00:00:00Z';
   const dates = `from=${filterFrom}&to=${filterTo}`;
 
   return await axios.get(`https://api.covid19api.com/country/${country}?${dates}`).then((responce) => {
     if(responce.status === 200) {
-      return responce.data;
+
+      const daysLabel = [];
+      const dataDays = {
+        Confirmed: [],
+        Deaths: [],
+        Recovered: []
+      }
+      
+      console.log(responce.data);
+      for(let i = 0; i < responce.data.length - 1; i++) {
+        const day = responce.data[i+1];
+        const dayBefore = responce.data[i];
+        
+        const dayLabel = new Date(day.Date);
+        dayLabel.setDate(dayLabel.getDate() + 1);
+        daysLabel.push(dayLabel.toLocaleDateString());
+
+        const dayRecovered = day.Recovered - dayBefore.Recovered;
+        dataDays.Recovered.push(dayRecovered);
+
+        const dayDeath = day.Deaths - dayBefore.Deaths;
+        dataDays.Deaths.push(dayDeath);
+
+        const dayConfirmed = day.Confirmed - dayBefore.Confirmed;
+        dataDays.Confirmed.push(dayConfirmed);
+      }
+
+      buildLineGraph(daysLabel, dataDays[dataType]);
+
+      document.getElementById('kpiconfirmed').innerHTML = Number(_.sum(dataDays.Confirmed)).toLocaleString();
+      document.getElementById('kpideaths').innerHTML = Number(_.sum(dataDays.Deaths)).toLocaleString();
+      document.getElementById('kpirecovered').innerHTML = Number(_.sum(dataDays.Recovered)).toLocaleString();
     }
   }).catch((error) => console.log(error));
 }
@@ -22,16 +91,28 @@ function loadCountrys(countryList) {
   }
 
   document.getElementById('cmbCountry').innerHTML = countrysHtml;
+  document.getElementById('date_start').value = '2020-03-01';
+  document.getElementById('date_end').value = '2020-04-01';
+}
+
+function applyFilters() {
+  const dateFrom = new Date(document.getElementById('date_start').value);
+  const dateTo = new Date(document.getElementById('date_end').value);
+  const dataType = document.getElementById('cmbData').value;
+  const country = document.getElementById('cmbCountry').value;
+
+  getCountryStatus(country, dateTo, dateFrom, dataType);
 }
 
 (async () => {
-  await axios.get('https://api.covid19api.com/summary').then(async (responce) => {
+  await axios.get('https://api.covid19api.com/countries').then(async (responce) => {
     if(responce.status === 200) {
       const jsonData = responce.data;
 
-      loadCountrys(jsonData.Countries);
-      const countryData = await getCountryStatus();
-      console.log(countryData);
+      loadCountrys(jsonData);
+      await getCountryStatus();
+
+      document.getElementById('filtro').addEventListener('click', applyFilters);
     }
   }).catch((error) => console.log(error));
 }) ();
