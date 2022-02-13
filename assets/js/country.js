@@ -42,7 +42,7 @@ async function getCountryStatus(country = 'brazil', dateTo, dateFrom, dataType =
   const filterFrom = dateFrom instanceof Date ? dateFrom.toISOString() : '2020-02-29T00:00:00Z';
   const filterTo = dateTo instanceof Date ? dateTo.toISOString() : '2020-04-01T00:00:00Z';
   const dates = `from=${filterFrom}&to=${filterTo}`;
-
+console.log(dates, dateTo, dateFrom);
   return await axios.get(`https://api.covid19api.com/country/${country}?${dates}`).then((responce) => {
     if(responce.status === 200) {
 
@@ -98,10 +98,33 @@ function loadCountrys(countryList) {
 function applyFilters() {
   const dateFrom = new Date(document.getElementById('date_start').value);
   const dateTo = new Date(document.getElementById('date_end').value);
+
+  const newDateFrom = new Date(
+    dateFrom.getFullYear(),
+    dateFrom.getMonth(),
+    dateFrom.getDate() + 1,
+    -3,
+    0,
+    1,
+    0
+  );
+
+  const newDateTo = new Date(
+    dateTo.getFullYear(),
+    dateTo.getMonth(),
+    dateTo.getDate() + 1,
+    -3,
+    0,
+    1,
+    0
+  );
+
+  console.log(newDateFrom, newDateTo);
+
   const dataType = document.getElementById('cmbData').value;
   const country = document.getElementById('cmbCountry').value;
 
-  getCountryStatus(country, dateTo, dateFrom, dataType);
+  getCountryStatus(country, newDateTo, newDateFrom, dataType);
 }
 
 (async () => {
